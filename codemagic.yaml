@@ -1,4 +1,30 @@
 workflows:
+  ios-check:
+    name: فحص البناء (بدون حساب آبل)
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      node: 20
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: ترتيب الملفات
+        script: |
+          mkdir -p www resources
+          cp index.html www/index.html
+          cp icon.png resources/icon.png
+          grep -q NativeSR www/index.html
+      - name: تثبيت الحزم
+        script: npm install
+      - name: إضافة منصة iOS
+        script: |
+          npx cap add ios
+          npx capacitor-assets generate --ios || true
+          npx cap sync ios
+      - name: بناء على المحاكي
+        script: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build | tail -40
   ios-testflight:
     name: القرآن الكريم - iOS
     instance_type: mac_mini_m2
