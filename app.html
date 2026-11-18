@@ -188,6 +188,7 @@ body.vo #fsPanel{display:none}
     <button id="instBtn" class="act" type="button">📲 تثبيت على الشاشة الرئيسية</button>
     <button id="offBtn" class="act" type="button" hidden>⬇ تحميل القرآن كاملًا للاستخدام بلا إنترنت</button>
     <p id="setNote" class="note" hidden></p>
+    <p class="note" id="verNote" style="text-align:center;opacity:.7"></p>
   </div>
   <div id="goPanel" class="go" hidden>
     <select id="goSurah" aria-label="السورة"></select>
@@ -528,7 +529,7 @@ function versesAtLine(y){
     const t=Math.min(1,Math.max(0,(y-sTop)/lh)), x=R-t*(R-L); let bs=1e9;
     for (const [v,q] of frags){ const d=x<q.left?q.left-x:x>q.right?x-q.right:0; if(d<bs){bs=d;best=v;} }
   }
-  if (!best&&all.length){ if(scrollY<4) best=all[0]; }
+  if (all.length&&scrollY<4) best=all[0]; // أعلى الصفحة: الآية الأولى
   if (all.length&&scrollY+innerHeight>=document.documentElement.scrollHeight-4&&y<all[all.length-1].getBoundingClientRect().top) best=all[all.length-1];
   return best?[best]:[];
 }
@@ -706,8 +707,27 @@ $('instBtn').addEventListener('click',()=>{
   $('instArrow').hidden=!ios;
   setPanel.hidden=true; $('instSheet').hidden=false;
 });
-$('instOk').addEventListener('click',()=>{ $('instSheet').hidden=true; });
-$('instSheet').addEventListener('click',e=>{ if(e.target===$('instSheet')) $('instSheet').hidden=true; });
+let instAfter=null;
+$('verNote').textContent='الإصدار ٢٫٣ · ١٧/١١/٢٠٢٦ · تطبيق';
+$('instOk').addEventListener('click',()=>{ $('instSheet').hidden=true; if(instAfter){ const f=instAfter; instAfter=null; f(); } });
+$('instSheet').addEventListener('click',e=>{ if(e.target===$('instSheet')){ $('instSheet').hidden=true; instAfter=null; } });
+function showSheet(title,steps,okText,after){
+  $('instTitle').textContent=title; $('instSteps').innerHTML=steps.map(s=>'<li>'+s+'</li>').join('');
+  $('instArrow').hidden=true; $('instOk').textContent=okText||'حسنًا'; instAfter=after||null; $('instSheet').hidden=false;
+}
+function micHelp(kind){
+  const app=LOCAL_Q;
+  if (kind==='service-not-allowed') showSheet('فعّل الإملاء الصوتي',[
+    'افتح <b>الإعدادات ← عام ← لوحة المفاتيح</b>.','شغّل <b>تفعيل الإملاء</b>.','تأكد أن <b>Siri</b> مفعّل (الإعدادات ← Siri).','ارجع هنا واضغط 🎤 من جديد.']);
+  else if (app) showSheet('الميكروفون غير مسموح',[
+    'افتح <b>الإعدادات ← القرآن الكريم</b>.','فعّل <b>الميكروفون</b> و<b>التعرف على الكلام</b>.','ارجع هنا واضغط 🎤 من جديد.']);
+  else showSheet('الميكروفون غير مسموح',[
+    'افتح <b>الإعدادات ← Safari ← الميكروفون</b> واختر «اسأل» أو «سماح».','أو اضغط <b>أA</b> في شريط Safari ← <b>إعدادات الموقع</b> ← الميكروفون ← «سماح».','ارجع هنا واضغط 🎤 من جديد.']);
+}
+function micIntro(go){
+  showSheet('القراءة الصوتية',[
+    'اضغط «سماح» عندما يطلب الميكروفون.','اقرأ بصوت واضح، وتتبع الآية تلقائيًا.','للانتقال قل: <b>سورة الملك</b> أو <b>الجزء ٥</b> أو <b>الجزء التالي</b>.','للإيقاف اضغط 🎤 أو قل <b>وقف</b>.'],'ابدأ',go);
+}
 // تنزيل القرآن بهدوء في الخلفية بعد أول فتح (بدون زر)
 (function(){
   if (LOCAL_Q) return;
@@ -1004,7 +1024,7 @@ function vRun(){
   r.onresult=e=>{ vErrN=0; vHandle(e); };
   r.onnomatch=()=>{ $('micTxt').textContent='أعد القراءة'; };
   r.onerror=ev=>{
-    if (ev.error==='not-allowed'||ev.error==='service-not-allowed'){ vStop('الميكروفون غير مسموح. فعّله من إعدادات الموقع.'); }
+    if (ev.error==='not-allowed'||ev.error==='service-not-allowed'){ vStop(); micHelp(ev.error); }
     else if (ev.error==='network'){ $('micTxt').textContent='لا يوجد اتصال بالإنترنت'; }
     else if (ev.error==='audio-capture' || ev.error==='aborted'){
       // المايك مشغول لحظيًا (يحصل بعد إعادة التشغيل خصوصًا في آيفون): أعد المحاولة بدل الإيقاف
@@ -1190,7 +1210,7 @@ $('micBtn').addEventListener('click',()=>{ if(voiceOn) vStop(); else vStart(); }
   const pos=()=>{ fab.style.bottom=(bar.offsetHeight+14)+'px'; };
   pos(); addEventListener('resize',pos);
   if (window.ResizeObserver) new ResizeObserver(pos).observe(bar);
-  fab.addEventListener('click',()=>{ if(voiceOn) vStop(); else vStart(); });
+  fab.addEventListener('click',()=>{ if(voiceOn){ vStop(); return; } if(!store.get('micIntro',false)){ store.set('micIntro',true); micIntro(vStart); } else vStart(); });
 })();
 function fixUi(){ $('fixBtn').textContent='✏️ تصحيح القراءة: '+(vFix?'مفعّل':'معطّل'); $('fixBtn').setAttribute('aria-pressed',vFix); }
 fixUi();
