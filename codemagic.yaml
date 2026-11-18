@@ -1,0 +1,46 @@
+workflows:
+  ios-testflight:
+    name: القرآن الكريم - iOS
+    instance_type: mac_mini_m2
+    max_build_duration: 40
+    integrations:
+      app_store_connect: Codemagic   # اسم المفتاح الذي تضيفه في إعدادات Codemagic
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.hamed.quran
+      vars:
+        APP_ID: "0000000000"         # رقم التطبيق من App Store Connect (Apple ID) بعد إنشائه
+      node: 20
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: تثبيت الحزم
+        script: npm install
+      - name: إضافة منصة iOS
+        script: |
+          npx cap add ios
+          npx capacitor-assets generate --ios || true
+      - name: صلاحيات المايك والتعرف على الصوت
+        script: |
+          PL=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string 'يُستخدم الميكروفون لتتبّع قراءتك للقرآن.'" $PL
+          /usr/libexec/PlistBuddy -c "Add :NSSpeechRecognitionUsageDescription string 'يُستخدم التعرف على الصوت لتتبّع القراءة والانتقال بين الآيات.'" $PL
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 'القرآن الكريم'" $PL || true
+      - name: مزامنة
+        script: npx cap sync ios
+      - name: رقم البناء
+        script: |
+          cd ios/App
+          agvtool new-version -all $(($(app-store-connect get-latest-testflight-build-number "$APP_ID" 2>/dev/null || echo 0) + 1))
+      - name: تجهيز التوقيع
+        script: xcode-project use-profiles --project ios/App/App.xcodeproj
+      - name: بناء ملف IPA
+        script: |
+          xcode-project build-ipa --project ios/App/App.xcodeproj --scheme App
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
