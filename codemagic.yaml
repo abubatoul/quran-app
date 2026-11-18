@@ -11,9 +11,10 @@ workflows:
       - name: ترتيب الملفات
         script: |
           mkdir -p www resources
-          cp index.html www/index.html
+          cp app.html www/index.html
+          cp quran.json www/quran.json
           cp icon.png resources/icon.png
-          grep -q NativeSR www/index.html
+          grep -q NativeSR www/index.html && test -s www/quran.json
       - name: تثبيت الحزم
         script: npm install
       - name: إضافة منصة iOS
@@ -44,9 +45,10 @@ workflows:
       - name: ترتيب الملفات
         script: |
           mkdir -p www resources
-          cp index.html www/index.html
+          cp app.html www/index.html
+          cp quran.json www/quran.json
           cp icon.png resources/icon.png
-          test -s www/index.html && grep -q NativeSR www/index.html
+          test -s www/index.html && grep -q NativeSR www/index.html && test -s www/quran.json
       - name: تثبيت الحزم
         script: npm install
       - name: إضافة منصة iOS
